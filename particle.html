@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>粒子工具設計演示文稿</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; width: 100%; height: 100%; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", "Microsoft JhengHei", sans-serif;
+      background: #f6f7f9; color: #1f2a37; overflow: hidden;
+    }
+    .deck { width: 100%; height: 100%; display: flex; flex-direction: column; }
+    .toolbar {
+      height: 56px; display: flex; align-items: center; justify-content: space-between;
+      padding: 0 16px; background: #ffffffcc; border-bottom: 1px solid #e6e9ef; backdrop-filter: blur(4px);
+    }
+    .toolbar-left { font-weight: 600; color: #344256; letter-spacing: .08em; font-size: 12px; text-transform: uppercase; }
+    .toolbar-right { display: flex; align-items: center; gap: 8px; }
+    .btn {
+      border: 1px solid #d4dae5; background: #f9fafb; color: #334155;
+      border-radius: 10px; padding: 6px 12px; font-size: 13px; cursor: pointer;
+    }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .lang-btn.active { background: #e2e8f0; border-color: #94a3b8; color: #0f172a; }
+    .dot-nav { display: flex; align-items: center; gap: 6px; margin: 0 6px; }
+    .dot {
+      width: 10px; height: 10px; border-radius: 999px; border: none; background: #cbd5e1;
+      cursor: pointer; padding: 0; transition: transform .16s ease, background-color .16s ease;
+    }
+    .dot:hover { background: #94a3b8; transform: scale(1.08); }
+    .dot.active { background: #2563eb; transform: scale(1.18); }
+    .page-indicator { font-size: 13px; color: #64748b; min-width: 64px; text-align: center; }
+    .global-lang-switch {
+      position: fixed;
+      left: 16px;
+      bottom: 16px;
+      z-index: 100;
+      display: flex;
+      gap: 8px;
+    }
+    .slide-wrap { flex: 1; padding: 18px 20px; display: flex; align-items: center; justify-content: center; }
+    .slide { width: min(1240px, 96vw); height: min(700px, 86vh); display: none; overflow: auto; padding: 20px 18px; }
+    .slide.active { display: block; }
+    .cover {
+      display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;
+      height: 100%; padding: 16px;
+    }
+    .cover-kicker { letter-spacing: .32em; font-size: 14px; color: #4b5563; margin-bottom: 18px; text-transform: uppercase; font-weight: 600; }
+    .cover h1 { margin: 0 0 14px; font-size: 50px; line-height: 1.22; color: #1e293b; }
+    .cover .subtitle { font-size: 20px; color: #0891b2; font-weight: 700; margin-bottom: 10px; }
+    .cover-authors { margin-top: 12px; line-height: 1.9; color: #475569; font-size: 26px; font-weight: 600; }
+    .cover-note { margin-top: 24px; max-width: 920px; color: #5b6880; font-size: 18px; line-height: 1.8; }
+    .lang-switch { margin-top: 14px; display: flex; gap: 8px; }
+    .text-slide { max-width: 1040px; margin: 18px auto 0; text-align: left; }
+    .text-slide h2 { margin: 0 0 16px; font-size: 34px; color: #1f2937; }
+    .block-title { font-size: 21px; font-weight: 700; margin: 14px 0 8px; color: #0f172a; }
+    .text-slide p { margin: 0 0 10px; font-size: 21px; line-height: 1.85; color: #475569; }
+    .text-slide ul { margin: 0 0 10px; padding-left: 24px; font-size: 21px; line-height: 1.9; color: #475569; }
+    .split-layout {
+      display: grid;
+      grid-template-columns: 1.45fr .95fr;
+      gap: 20px;
+      align-items: start;
+    }
+    .split-right {
+      display: flex;
+      justify-content: center;
+      padding-top: 36px;
+    }
+    .slide-image {
+      display: block;
+      width: min(430px, 100%);
+      height: auto;
+      margin: 0;
+      border-radius: 10px;
+    }
+    .dual-images {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin: 12px 0 8px;
+    }
+    .dual-images img {
+      width: 100%;
+      height: auto;
+      border-radius: 10px;
+      display: block;
+    }
+    .concept-layout {
+      display: grid;
+      grid-template-columns: 1.5fr .85fr;
+      gap: 18px;
+      align-items: start;
+    }
+    .concept-images {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      padding-top: 10px;
+    }
+    .concept-images img {
+      width: 100%;
+      max-width: 240px;
+      height: auto;
+      border-radius: 10px;
+      display: block;
+      margin-left: auto;
+    }
+    .ui-shot {
+      width: 100%;
+      max-width: 260px;
+      height: auto;
+      border-radius: 10px;
+      display: block;
+      margin-left: auto;
+      margin-top: -42px;
+    }
+    .ui-shot + .ui-shot {
+      margin-top: 10px;
+    }
+    .ux-layout {
+      display: grid;
+      grid-template-columns: 1.05fr 1.25fr;
+      gap: 34px;
+      align-items: start;
+    }
+    .ux-images {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      justify-items: end;
+      align-items: start;
+      padding-top: 0;
+      padding-left: 16px;
+    }
+    .ux-images .ui-shot {
+      max-width: 255px;
+      margin: -36px 0 0 0;
+    }
+    .ux-images .ui-shot + .ui-shot {
+      margin-top: -36px;
+    }
+    .ui-layout {
+      display: grid;
+      grid-template-columns: 1.1fr 1.2fr;
+      gap: 26px;
+      align-items: start;
+    }
+    .ui-images {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      justify-items: end;
+      align-items: start;
+      padding-top: 2px;
+    }
+    .ui-images img {
+      width: 100%;
+      max-width: 255px;
+      border-radius: 10px;
+      display: block;
+    }
+    .motion-layout {
+      display: grid;
+      grid-template-columns: 1.15fr 1.05fr;
+      gap: 22px;
+      align-items: start;
+    }
+    .motion-image {
+      width: 100%;
+      max-width: 320px;
+      height: auto;
+      border-radius: 10px;
+      display: block;
+      margin-left: auto;
+      margin-top: -8px;
+    }
+    .app-layout {
+      display: grid;
+      grid-template-columns: 1.18fr .95fr;
+      gap: 24px;
+      align-items: start;
+    }
+    .app-image {
+      width: 100%;
+      max-width: 300px;
+      height: auto;
+      border-radius: 10px;
+      display: block;
+      margin-left: auto;
+      margin-top: -6px;
+    }
+    .eval-layout {
+      display: grid;
+      grid-template-columns: 1.2fr .9fr;
+      gap: 22px;
+      align-items: start;
+    }
+    .eval-image {
+      width: 100%;
+      max-width: 300px;
+      height: auto;
+      border-radius: 10px;
+      display: block;
+      margin-left: auto;
+      margin-top: -8px;
+    }
+    .ux-layout .block-title {
+      font-size: 19px;
+    }
+    .ux-layout ul {
+      font-size: 18px;
+      line-height: 1.72;
+    }
+    .ux-layout > div:first-child {
+      margin-left: -62px;
+    }
+    .slide[data-slide="1"] .block-title {
+      font-size: 18px;
+    }
+    .slide[data-slide="1"] ul {
+      font-size: 17px;
+      line-height: 1.68;
+    }
+    .slide[data-slide="4"] .text-slide > h2 {
+      margin-left: -44px;
+    }
+    .footer-note { margin-top: 12px; font-size: 14px; color: #64748b; }
+    @media (max-width: 900px) {
+      .cover h1 { font-size: 34px; } .cover .subtitle { font-size: 18px; }
+      .cover-kicker { font-size: 11px; letter-spacing: .18em; } .cover-authors { font-size: 20px; }
+      .cover-note { font-size: 15px; } .text-slide h2 { font-size: 26px; }
+      .text-slide p, .text-slide ul { font-size: 17px; line-height: 1.75; } .block-title { font-size: 18px; }
+      .split-layout { grid-template-columns: 1fr; }
+      .split-right { padding-top: 4px; }
+      .slide-image { width: min(340px, 100%); }
+      .dual-images { grid-template-columns: 1fr; }
+      .concept-layout { grid-template-columns: 1fr; }
+      .concept-images img { margin: 0 auto; max-width: 340px; }
+      .ux-layout { grid-template-columns: 1fr; }
+      .ux-images { grid-template-columns: 1fr; justify-items: center; }
+      .ux-images .ui-shot, .ux-images .ui-shot + .ui-shot { margin-top: 0; max-width: 320px; }
+      .ui-layout { grid-template-columns: 1fr; }
+      .ui-images { grid-template-columns: 1fr; justify-items: center; }
+      .ui-images img { max-width: 320px; }
+      .motion-layout { grid-template-columns: 1fr; }
+      .motion-image { margin: 0 auto; max-width: 360px; }
+      .app-layout { grid-template-columns: 1fr; }
+      .app-image { margin: 0 auto; max-width: 340px; }
+      .eval-layout { grid-template-columns: 1fr; }
+      .eval-image { margin: 0 auto; max-width: 340px; }
+      .ux-layout > div:first-child { margin-left: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="deck">
+    <div class="toolbar">
+      <div id="toolbarTitle" class="toolbar-left">Visual Communication · Design Focus</div>
+      <div class="toolbar-right">
+        <button id="prevBtn" class="btn">上一頁</button>
+        <div id="dotNav" class="dot-nav"></div>
+        <div id="pageIndicator" class="page-indicator">1 / 12</div>
+        <button id="nextBtn" class="btn">下一頁</button>
+      </div>
+    </div>
+    <div class="slide-wrap" id="slideWrap"></div>
+  </div>
+  <div class="global-lang-switch">
+    <button id="globalLangZhBtn" class="btn lang-btn active" type="button">中文</button>
+    <button id="globalLangEnBtn" class="btn lang-btn" type="button">EN</button>
+  </div>
+
+  <script>
+    const I18N = {
+      zh: {
+        docTitle: "粒子工具設計演示文稿",
+        toolbar: "Visual Communication · Design Focus",
+        prev: "上一頁",
+        next: "下一頁",
+        cover: {
+          kicker: "VISUAL COMMUNICATION · DESIGN FOCUS",
+          title: "從靜態圖像到可交互的 3D 粒子視覺表達工具",
+          subtitle: "一句話定位",
+          note: "把「圖片/文字」轉化為「可操控的空間粒子形態」，讓視覺資訊從平面展示升級為過程化、可體驗的敘事。",
+          hint: "提示：按左右方向鍵或點擊上下頁按鈕翻頁"
+        },
+        slides: [
+          `<div class="cover">
+            <div class="cover-kicker">VISUAL COMMUNICATION · DESIGN FOCUS</div>
+            <h1>從靜態圖像到可交互的 3D 粒子視覺表達工具</h1>
+            <div class="subtitle">一句話定位</div>
+            <div class="cover-note">把「圖片/文字」轉化為「可操控的空間粒子形態」，讓視覺資訊從平面展示升級為過程化、可體驗的敘事。</div>
+            <div class="cover-authors"><div>張璋 MC569151</div><div>袁晨皓 MC569028</div></div>
+            <div class="footer-note">提示：按左右方向鍵或點擊上下頁按鈕翻頁</div>
+          </div>`,
+          `<div class="text-slide"><h2>項目背景與設計動機（Why）</h2><div class="split-layout"><div><div class="block-title">痛點</div><ul><li>靜態海報/Logo/文字在數字場景中停留時間短，難建立記憶點</li><li>傳統動態圖通常是預渲染，互動性弱、可復用性低</li><li>設計表達常缺「過程感」，觀眾只看到結果，看不到生成邏輯</li></ul><div class="block-title">設計動機</div><ul><li>用粒子重構圖像與文字，讓視覺資訊具備「生成過程」</li><li>讓觀眾通過拖拽、點擊、縮放參與觀看，增強沉浸與記憶</li><li>支持快速導出圖像/視頻，連接設計探索與傳播落地</li></ul></div><div class="split-right"><img class="slide-image" src="./slide2-image.png" alt="Particle hello sample" /></div></div></div>`,
+          `<div class="text-slide"><h2>設計目標與價值（Purpose）</h2><div class="block-title">核心目標</div><ul><li>建立一個低門檻的視覺實驗工具（上傳即得結果）</li><li>強化「可解釋的視覺變化」：散開 -> 聚合 -> 交互擾動</li><li>服務視覺傳達場景：品牌展示、標題開場、活動 KV 動畫、教學演示</li></ul><div class="block-title">價值主張</div><ul><li>對設計師：快速驗證視覺風格與動態語言</li><li>對受眾：從「看一張圖」變成「體驗一個視覺行為」</li><li>對傳播：可直接輸出素材，縮短從創意到發布的路徑</li></ul></div>`,
+          `<div class="text-slide"><h2>核心概念（Concept）</h2><div class="concept-layout"><div><div class="block-title">概念關鍵詞</div><ul><li>解構與重構</li><li>從二維到偽三維</li><li>可控隨機性</li><li>參與式觀看</li></ul><div class="block-title">概念闡釋</div><ul><li>圖像/文字先被「拆解」為粒子，再在時間軸上「重組」為目標形態</li><li>深度與透視讓內容具備空間層次，而不是平面像素複製</li><li>點擊觸發「局部擴散」體現生命感，強化「信息可被觸碰」的隱喻</li></ul></div><div class="concept-images"><img src="./slide4-image-1.png" alt="Original leaf" /><img src="./slide4-image-2.png" alt="Particle leaf result" /></div></div></div>`,
+          `<div class="text-slide"><h2>信息架構與交互流程（UX Flow）</h2><div class="ux-layout"><div><div class="block-title">用戶主路徑</div><ul><li>選擇輸入（上傳圖片或輸入文字）</li><li>調整參數（間距、大小、深度、閾值、透視、色彩、背景）</li><li>觀察動態結果（散開聚合 + 旋轉縮放 + 點擊擾動）</li><li>導出成果（保存圖片 / 錄製視頻）</li></ul><div class="block-title">UX 決策</div><ul><li>把高頻操作集中在左側面板，降低查找成本</li><li>參數命名偏語義化（不是技術術語），便於非開發用戶理解</li><li>操作-反饋即時聯動，減少「改了但看不懂效果」的挫敗感</li></ul></div><div class="ux-images"><img class="ui-shot" src="./slide5-image.png" alt="Tool UI panel screenshot zh" /><img class="ui-shot" src="./slide5-image-2.png" alt="Tool UI panel screenshot en" /></div></div></div>`,
+          `<div class="text-slide"><h2>UI 視覺語言與界面策略（UI Decisions）</h2><div class="ui-layout"><div><div class="block-title">界面策略</div><ul><li>畫布全屏優先：內容是主角，控制面板是輔助</li><li>面板半透明 + 圓角 + 淺陰影：保證可讀，同時不過度搶畫面</li><li>統一綠色系主色：傳達「生成、生長、能量流動」的品牌感知</li></ul><div class="block-title">控件設計</div><ul><li>滑桿用於連續參數（強度/尺度），顏色選擇器用於風格定調</li><li>實時數值輸出增強精確控制感</li><li>中英雙語切換降低演示與跨語境溝通成本</li></ul></div><div class="ui-images"><img src="./slide6-image-1.png" alt="UI screenshot top" /><img src="./slide6-image-2.png" alt="UI screenshot bottom" /></div></div></div>`,
+          `<div class="text-slide"><h2>動態與交互體驗設計（Motion & Interaction）</h2><div class="motion-layout"><div><div class="block-title">關鍵動態敘事</div><ul><li>初始散開 -> 逐步匯聚：形成「從混沌到秩序」的視覺故事</li><li>深度隨機分佈：避免薄片感，提升體積與呼吸感</li><li>點擊局部爆發後回收：引入短時事件，製造節奏峰值</li></ul><div class="block-title">交互設計原則</div><ul><li>旋轉/縮放對應自然空間認知，學習成本低</li><li>點擊與拖拽分離，防止誤觸</li><li>空格暫停支持講解時「定格分析」</li></ul></div><div><img class="motion-image" src="./slide7-image.png" alt="Particle leaf animation result" /></div></div></div>`,
+          `<div class="text-slide"><h2>設計過程（Process）</h2><div class="block-title">階段 1：問題定義</div><p>明確目標不是「做 3D」，而是「增強視覺傳達的可體驗性」。</p><div class="block-title">階段 2：視覺原型探索</div><p>驗證粒子密度、形態可識別性、色彩統一性，在「可讀性」和「藝術噪聲」之間找平衡點。</p><div class="block-title">階段 3：交互打磨</div><p>優化參數優先級與默認值，強化即時反饋，減少操作等待感。</p><div class="block-title">階段 4：傳播閉環</div><p>增加圖像與視頻導出，讓設計結果可直接進入發布鏈路。</p></div>`,
+          `<div class="text-slide"><h2>應用場景（How it applies to visual communication）</h2><div class="app-layout"><div><div class="block-title">典型場景</div><ul><li>品牌發布：Logo 粒子化開場，提升儀式感</li><li>展覽/活動：現場交互屏，觀眾點擊觸發動態回應</li><li>教育展示：講解字體、圖形、構圖的「結構與生成」</li><li>社媒內容：高識別短視頻素材，強化傳播記憶點</li></ul><div class="block-title">傳播層面意義</div><ul><li>從單向展示轉向交互敘事</li><li>從靜態視覺資產轉向可復用的動態資產模板</li></ul></div><div><img class="app-image" src="./slide9-image.png" alt="Apple logo particle result" /></div></div></div>`,
+          `<div class="text-slide"><h2>結果評估與反思</h2><div class="eval-layout"><div><div class="block-title">達成</div><ul><li>輸入門檻低，輸出表現強</li><li>視覺衝擊與信息識別可並存</li><li>設計探索到傳播發布鏈路更短</li></ul><div class="block-title">反思</div><ul><li>參數多時可能增加新手決策負擔</li><li>不同輸入素材質量會影響粒子效果穩定性</li><li>後續可加入「預設風格模板」進一步降低學習成本</li></ul></div><div><img class="eval-image" src="./slide10-image.png" alt="Blue teddy particle result" /></div></div></div>`,
+          `<div class="text-slide"><h2>後續方向（Future Design Opportunities）</h2><div class="block-title">設計向迭代</div><ul><li>風格預設（極簡、科技、自然、品牌色套件）</li><li>多層粒子敘事（前景文字 + 背景圖形）</li><li>時間線編排（開場、停留、轉場）</li><li>多端交互適配（移動端手勢與展示模式）</li></ul><div class="block-title">一句收束</div><p>這個工具的核心意義是：把視覺設計從「作品交付」擴展為「可被體驗的過程」。</p></div>`
+        ]
+      },
+      en: {
+        docTitle: "Particle Tool Design Deck",
+        toolbar: "Visual Communication · Design Focus",
+        prev: "Previous",
+        next: "Next",
+        slides: [
+          `<div class="cover">
+            <div class="cover-kicker">VISUAL COMMUNICATION · DESIGN FOCUS</div>
+            <h1>From Static Images to an Interactive 3D Particle Visual Tool</h1>
+            <div class="subtitle">One-line Positioning</div>
+            <div class="cover-note">Transform image/text into controllable spatial particles, and upgrade visual information from flat display to process-driven, experiential storytelling.</div>
+            <div class="cover-authors"><div>Zhang Zhang MC569151</div><div>Yuan Chenhao MC569028</div></div>
+            <div class="footer-note">Tip: Use arrow keys or click Prev/Next to navigate.</div>
+          </div>`,
+          `<div class="text-slide"><h2>Background & Motivation (Why)</h2><div class="split-layout"><div><div class="block-title">Pain Points</div><ul><li>Static posters/logos/text have short retention in digital scenes and weak memorability.</li><li>Traditional motion visuals are often pre-rendered, with weak interactivity and low reusability.</li><li>Design communication often lacks process visibility; people only see outcomes, not generation logic.</li></ul><div class="block-title">Motivation</div><ul><li>Reconstruct images and text with particles so visual information has a visible generation process.</li><li>Enable drag/click/zoom participation to increase immersion and memory.</li><li>Support fast image/video export to connect design exploration with publishing.</li></ul></div><div class="split-right"><img class="slide-image" src="./slide2-image.png" alt="Particle hello sample" /></div></div></div>`,
+          `<div class="text-slide"><h2>Goals & Value (Purpose)</h2><div class="block-title">Core Goals</div><ul><li>Build a low-threshold visual experiment tool (upload and get results instantly).</li><li>Strengthen explainable visual changes: scatter -> gather -> interactive disturbance.</li><li>Serve communication scenarios: brand showcase, title openings, event KV animation, teaching demos.</li></ul><div class="block-title">Value Proposition</div><ul><li>For designers: quickly validate visual styles and motion language.</li><li>For audiences: shift from seeing an image to experiencing a visual behavior.</li><li>For distribution: output ready-to-use assets and shorten idea-to-publish path.</li></ul></div>`,
+          `<div class="text-slide"><h2>Core Concept (Concept)</h2><div class="concept-layout"><div><div class="block-title">Keywords</div><ul><li>Deconstruction & Reconstruction</li><li>From 2D to pseudo-3D</li><li>Controllable randomness</li><li>Participatory viewing</li></ul><div class="block-title">Explanation</div><ul><li>Image/text is first decomposed into particles, then reassembled over time.</li><li>Depth and perspective create spatial hierarchy instead of flat pixel duplication.</li><li>Click-triggered local diffusion adds vitality and reinforces touchable information metaphor.</li></ul></div><div class="concept-images"><img src="./slide4-image-1.png" alt="Original leaf" /><img src="./slide4-image-2.png" alt="Particle leaf result" /></div></div></div>`,
+          `<div class="text-slide"><h2>Information Architecture & UX Flow</h2><div class="ux-layout"><div><div class="block-title">Primary User Path</div><ul><li>Choose input (upload image or type text).</li><li>Adjust parameters (spacing, size, depth, threshold, perspective, color, background).</li><li>Observe dynamic results (scatter-gather + rotate/zoom + click disturbance).</li><li>Export outputs (save image / record video).</li></ul><div class="block-title">UX Decisions</div><ul><li>Cluster frequent operations in the left panel to reduce search cost.</li><li>Use semantic labels instead of technical jargon for non-dev users.</li><li>Keep operation-feedback immediate to reduce frustration.</li></ul></div><div class="ux-images"><img class="ui-shot" src="./slide5-image.png" alt="Tool UI panel screenshot zh" /><img class="ui-shot" src="./slide5-image-2.png" alt="Tool UI panel screenshot en" /></div></div></div>`,
+          `<div class="text-slide"><h2>UI Language & Interface Strategy (UI Decisions)</h2><div class="ui-layout"><div><div class="block-title">Interface Strategy</div><ul><li>Full-screen canvas first: content leads, panel supports.</li><li>Semi-transparent panel + rounded corners + light shadow for readable yet unobtrusive controls.</li><li>Unified green palette to express generation, growth, and energy flow.</li></ul><div class="block-title">Controls</div><ul><li>Sliders for continuous parameters, color pickers for style direction.</li><li>Real-time numeric output for precision.</li><li>Bilingual switching lowers demo and cross-context communication cost.</li></ul></div><div class="ui-images"><img src="./slide6-image-1.png" alt="UI screenshot top" /><img src="./slide6-image-2.png" alt="UI screenshot bottom" /></div></div></div>`,
+          `<div class="text-slide"><h2>Motion & Interaction Experience</h2><div class="motion-layout"><div><div class="block-title">Narrative Motion</div><ul><li>Initial scatter -> gradual convergence builds a chaos-to-order story.</li><li>Random depth distribution avoids flatness and improves volume.</li><li>Click burst and recovery introduce temporal rhythm peaks.</li></ul><div class="block-title">Interaction Principles</div><ul><li>Rotate/zoom align with natural spatial cognition.</li><li>Separate click and drag to avoid accidental triggers.</li><li>Spacebar pause supports freeze-frame explanation.</li></ul></div><div><img class="motion-image" src="./slide7-image.png" alt="Particle leaf animation result" /></div></div></div>`,
+          `<div class="text-slide"><h2>Design Process (Process)</h2><div class="block-title">Phase 1: Problem Definition</div><p>The goal is not to build 3D itself, but to enhance experience in visual communication.</p><div class="block-title">Phase 2: Visual Prototype Exploration</div><p>Validate particle density, recognizability, and color consistency; balance readability and artistic noise.</p><div class="block-title">Phase 3: Interaction Polish</div><p>Optimize parameter priorities and defaults; strengthen immediate feedback and reduce waiting.</p><div class="block-title">Phase 4: Distribution Loop</div><p>Add image/video export so outputs can directly enter publishing pipelines.</p></div>`,
+          `<div class="text-slide"><h2>Application Scenarios</h2><div class="app-layout"><div><div class="block-title">Typical Use Cases</div><ul><li>Brand launch: particle-based logo openings for ceremony and impact.</li><li>Exhibitions/events: on-site interactive screens with click responses.</li><li>Education: explain structure and generation of type, graphics, composition.</li><li>Social media: high-recognition short videos with stronger recall.</li></ul><div class="block-title">Communication Significance</div><ul><li>Shift from one-way display to interactive storytelling.</li><li>Shift from static assets to reusable dynamic templates.</li></ul></div><div><img class="app-image" src="./slide9-image.png" alt="Apple logo particle result" /></div></div></div>`,
+          `<div class="text-slide"><h2>Evaluation & Reflection</h2><div class="eval-layout"><div><div class="block-title">Achievements</div><ul><li>Low input threshold with strong visual output.</li><li>Visual impact and information recognition can coexist.</li><li>Shorter path from exploration to publication.</li></ul><div class="block-title">Reflections</div><ul><li>Many parameters may increase decision burden for beginners.</li><li>Input material quality affects particle stability.</li><li>Preset style templates can further lower learning cost.</li></ul></div><div><img class="eval-image" src="./slide10-image.png" alt="Blue teddy particle result" /></div></div></div>`,
+          `<div class="text-slide"><h2>Future Design Opportunities</h2><div class="block-title">Design Iteration</div><ul><li>Style presets (minimal, tech, natural, brand color kits).</li><li>Multi-layer particle narrative (foreground text + background graphics).</li><li>Timeline choreography (intro, hold, transition).</li><li>Cross-device interaction adaptation (mobile gestures and display modes).</li></ul><div class="block-title">Closing Line</div><p>The core meaning of this tool is extending visual design from deliverables to experienceable processes.</p></div>`
+        ]
+      }
+    };
+
+    let current = 0;
+    let locale = "zh";
+    const slideWrap = document.getElementById("slideWrap");
+    const prevBtn = document.getElementById("prevBtn");
+    const nextBtn = document.getElementById("nextBtn");
+    const pageIndicator = document.getElementById("pageIndicator");
+    const dotNav = document.getElementById("dotNav");
+    const toolbarTitle = document.getElementById("toolbarTitle");
+    const globalLangZhBtn = document.getElementById("globalLangZhBtn");
+    const globalLangEnBtn = document.getElementById("globalLangEnBtn");
+    let slides = [];
+    let dots = [];
+
+    function rebuildDots(total) {
+      dotNav.innerHTML = "";
+      dots = [];
+      for (let i = 0; i < total; i++) {
+        const dot = document.createElement("button");
+        dot.className = "dot";
+        dot.type = "button";
+        dot.title = locale === "zh" ? `第 ${i + 1} 頁` : `Slide ${i + 1}`;
+        dot.setAttribute("aria-label", dot.title);
+        dot.addEventListener("click", () => goTo(i));
+        dots.push(dot);
+        dotNav.appendChild(dot);
+      }
+    }
+
+    function renderSlides() {
+      const pack = I18N[locale];
+      document.title = pack.docTitle;
+      document.documentElement.lang = locale === "zh" ? "zh-Hant" : "en";
+      toolbarTitle.textContent = pack.toolbar;
+      prevBtn.textContent = pack.prev;
+      nextBtn.textContent = pack.next;
+
+      slideWrap.innerHTML = "";
+      slides = [];
+      pack.slides.forEach((html, idx) => {
+        const section = document.createElement("section");
+        section.className = "slide";
+        section.dataset.slide = String(idx);
+        section.innerHTML = html;
+        slideWrap.appendChild(section);
+        slides.push(section);
+      });
+      rebuildDots(slides.length);
+
+      globalLangZhBtn.classList.toggle("active", locale === "zh");
+      globalLangEnBtn.classList.toggle("active", locale === "en");
+      render();
+    }
+
+    function render() {
+      const total = slides.length;
+      if (current >= total) current = total - 1;
+      if (current < 0) current = 0;
+      slides.forEach((s, idx) => s.classList.toggle("active", idx === current));
+      pageIndicator.textContent = `${current + 1} / ${total}`;
+      prevBtn.disabled = current === 0;
+      nextBtn.disabled = current === total - 1;
+      dots.forEach((dot, idx) => dot.classList.toggle("active", idx === current));
+    }
+
+    function goTo(index) {
+      current = index;
+      render();
+    }
+    function go(delta) { goTo(current + delta); }
+    function switchLang(nextLocale) {
+      locale = nextLocale;
+      renderSlides();
+    }
+
+    prevBtn.addEventListener("click", () => go(-1));
+    nextBtn.addEventListener("click", () => go(1));
+    globalLangZhBtn.addEventListener("click", () => switchLang("zh"));
+    globalLangEnBtn.addEventListener("click", () => switchLang("en"));
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowRight") go(1);
+      if (e.key === "ArrowLeft") go(-1);
+    });
+
+    renderSlides();
+  </script>
+</body>
+</html>
